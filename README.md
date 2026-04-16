@@ -24,9 +24,9 @@ Part of the [**Off-Grid Community Suite**](https://github.com/Nezugi/Off-Grid-Co
 ## Installation
 
 ```bash
-cp -r market/ ~/.nomadnetwork/storage/pages/market/
+copy files to ~/.nomadnetwork/storage/pages/market/
 chmod +x ~/.nomadnetwork/storage/pages/market/*.mu
-mkdir -p /home/YOUR_USER/.nomadMarket
+
 # edit main.py — set storage_path
 python3 ~/.nomadnetwork/storage/pages/market/setup_admin.py
 # restart NomadNet
