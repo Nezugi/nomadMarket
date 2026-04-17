@@ -24,12 +24,31 @@ Part of the [**Off-Grid Community Suite**](https://github.com/Nezugi/Off-Grid-Co
 ## Installation
 
 ```bash
-copy files to ~/.nomadnetwork/storage/pages/market/
-chmod +x ~/.nomadnetwork/storage/pages/market/*.mu
+# Installation of nomadMarket
 
-# edit main.py — set storage_path
+## 1. Clone the repository
+git clone https://github.com/Nezugi/nomadMarket
+cd nomadMarket
+
+## 2. Copy market page into your NomadNet pages directory
+cp -r market/ ~/.nomadnetwork/storage/pages/market/
+
+## 3. Make all .mu files executable
+chmod +x ~/.nomadnetwork/storage/pages/market/*.mu
+chmod +x ~/.nomadnetwork/storage/pages/market/admin_*.mu
+
+## 4. Edit main.py
+nano ~/.nomadnetwork/storage/pages/market/main.py
+
+# Adjust the following line to match your username:
+# storage_path = "/home/YOUR_USER/.nomadMarket"
+
+## 5. Create the admin account
 python3 ~/.nomadnetwork/storage/pages/market/setup_admin.py
-# restart NomadNet
+
+# After installation, access the market via:
+# YOUR_NODE_HASH:/page/market/index.mu
+
 ```
 
 ---
