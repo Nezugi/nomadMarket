@@ -129,6 +129,11 @@ def get_listing_by_token(token):
     c.close()
     return row
 
+def escape_micron(text):
+    """Neutralize Micron's control character so user-submitted text can't
+    inject formatting, colors, or fake links into the rendered page."""
+    return text.replace("`", "'")
+
 def create_listing(type_, category, title, description, price, lxmf, contact):
     """Create a new listing and return (id, edit_token)."""
     now = datetime.utcnow()
@@ -141,8 +146,8 @@ def create_listing(type_, category, title, description, price, lxmf, contact):
         (type,category,title,description,price,lxmf_address,contact_info,edit_token,is_visible,created_at,expires_at)
         VALUES (?,?,?,?,?,?,?,?,1,?,?)
     """, (
-        type_, category, title[:60], description[:400],
-        price[:60], lxmf[:32], contact[:100],
+        type_, category, escape_micron(title[:60]), escape_micron(description[:400]),
+        escape_micron(price[:60]), lxmf[:32], escape_micron(contact[:100]),
         token,
         now.strftime("%Y-%m-%dT%H:%M:%S"),
         expires.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -167,7 +172,8 @@ def update_listing(token, title, description, price, lxmf, contact, extend):
     c.execute("""
         UPDATE listings SET title=?,description=?,price=?,lxmf_address=?,contact_info=?,expires_at=?
         WHERE edit_token=?
-    """, (title[:60], description[:400], price[:60], lxmf[:32], contact[:100], new_expires, token))
+    """, (escape_micron(title[:60]), escape_micron(description[:400]), escape_micron(price[:60]),
+          lxmf[:32], escape_micron(contact[:100]), new_expires, token))
     c.commit()
     c.close()
     return True
