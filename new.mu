@@ -10,12 +10,19 @@ print("-")
 print(f"`[<- Back`{m.page_path}/index.mu]")
 print()
 
-submitted = os.environ.get("var_action", "") == "submit" or "field_title" in os.environ
+# Type and category are picked via links (var_type / var_cat), not radio
+# buttons: at least one real NomadNet client doesn't render Micron radio
+# labels correctly (confirmed elsewhere in the suite), so each is its own
+# step before the rest of the form.
+type_chosen = "var_type" in os.environ
+cat_chosen  = "var_cat" in os.environ
+typ = os.environ.get("var_type", "").strip()
+cat = os.environ.get("var_cat", "").strip()
+
+submitted = os.environ.get("var_action", "") == "submit"
 
 if submitted:
     try:
-        typ         = os.environ.get("field_type", "").strip()
-        cat         = os.environ.get("field_cat", "").strip()
         title       = os.environ.get("field_title", "").strip()
         description = os.environ.get("field_desc", "").strip()
         price       = os.environ.get("field_price", "").strip()
@@ -55,15 +62,37 @@ if submitted:
         print(f"`Ff55Error: {ex}`f")
         print()
 
-# ─── Form ──────────────────────────────────────────────────────────────────────
-print(">>Type")
-for slug, (label, color) in m.TYPES.items():
-    print(f"`<^|type|{slug}`>  {color}{label}`f")
-print()
+# ─── Step 1: pick a type ────────────────────────────────────────────────────
+if not type_chosen:
+    print(">>Type")
+    print("Select a listing type:")
+    print()
+    for slug, (label, color) in m.TYPES.items():
+        print(f"`[{label}`{m.page_path}/new.mu`type={slug}]  {color}{label}`f")
+    m.print_footer()
+    sys.exit()
 
-print(">>Category")
-for slug, name in m.get_categories():
-    print(f"`<^|cat|{slug}`>  {name}")
+# ─── Step 2: pick a category ─────────────────────────────────────────────────
+if not cat_chosen:
+    type_label, type_color = m.TYPES.get(typ, ("?", "`F777"))
+    print(f"Type: {type_color}{type_label}`f  "
+          f"`[change`{m.page_path}/new.mu]")
+    print()
+    print(">>Category")
+    print("Select a category:")
+    print()
+    for slug, name in m.get_categories():
+        print(f"`[{name}`{m.page_path}/new.mu`type={typ}|cat={slug}]")
+    m.print_footer()
+    sys.exit()
+
+# ─── Step 3: fill in the rest and submit ─────────────────────────────────────
+type_label, type_color = m.TYPES.get(typ, ("?", "`F777"))
+cat_name = m.get_category_name(cat)
+print(f"Type: {type_color}{type_label}`f  "
+      f"`[change`{m.page_path}/new.mu]")
+print(f"Category: `!{cat_name}`!  "
+      f"`[change`{m.page_path}/new.mu`type={typ}]")
 print()
 
 print(">>Title")
@@ -90,7 +119,7 @@ print("`F777e.g. node hash, meeting place, time`f")
 print("`B333`<40|contact`>`b")
 print()
 
-print(f"`[Post Listing`{m.page_path}/new.mu`*|action=submit]")
+print(f"`[Post Listing`{m.page_path}/new.mu`*|action=submit|type={typ}|cat={cat}]")
 print()
 
 m.print_footer()

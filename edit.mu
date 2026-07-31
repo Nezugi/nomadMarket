@@ -29,7 +29,10 @@ print()
 # ─── Handle Submit ─────────────────────────────────────────────────────────────
 action = os.environ.get("var_action", "")
 delete_action = action == "delete"
-save_action   = action == "save" or "field_title" in os.environ
+# "Extend" is its own submit link rather than a checkbox: at least one real
+# NomadNet client doesn't render Micron checkbox state correctly (confirmed
+# elsewhere in the suite), so which link is clicked decides it instead.
+save_action   = action in ("save", "save_extend")
 
 if delete_action:
     m.delete_by_token(token)
@@ -45,7 +48,7 @@ if save_action:
         new_price   = os.environ.get("field_price", "").strip()
         new_lxmf    = m.validate_lxmf(os.environ.get("field_lxmf", ""))
         new_contact = os.environ.get("field_contact", "").strip()
-        extend      = os.environ.get("field_extend", "") == "yes"
+        extend      = action == "save_extend"
 
         errors = []
         if not new_title:
@@ -108,11 +111,11 @@ print()
 
 print(">>Expiry")
 print(f"`F777Currently: {remaining}`f")
-print(f"`<?|extend|yes`>  Extend by {m.EXPIRE_DAYS} days (from now)")
 print()
 
 print(">>Actions")
 print(f"`[Save Changes`{m.page_path}/edit.mu`*|action=save|token={token}]")
+print(f"  `[Save Changes & Extend by {m.EXPIRE_DAYS} days`{m.page_path}/edit.mu`*|action=save_extend|token={token}]")
 print(f"  `[Delete Listing`{m.page_path}/edit.mu`*|action=delete|token={token}]")
 print()
 
