@@ -12,16 +12,22 @@ submitted = "field_pw" in os.environ
 
 if submitted:
     try:
-        pw = os.environ.get("field_pw", "")
-        if m.check_admin_pw(pw):
-            token = m.create_admin_session()
-            print("`F3a3Login successful.`f")
+        if m.is_admin_login_locked():
+            print(f"`Ff55Too many failed attempts. Try again in up to {m.ADMIN_LOGIN_LOCKOUT_MINUTES} minutes.`f")
             print()
-            print(f"`[Go to Admin Panel`{m.page_path}/admin.mu`session={token}]")
-            sys.exit()
         else:
-            print("`Ff55Incorrect password.`f")
-            print()
+            pw = os.environ.get("field_pw", "")
+            if m.check_admin_pw(pw):
+                m.clear_admin_login_failures()
+                token = m.create_admin_session()
+                print("`F3a3Login successful.`f")
+                print()
+                print(f"`[Go to Admin Panel`{m.page_path}/admin.mu`session={token}]")
+                sys.exit()
+            else:
+                m.record_admin_login_failure()
+                print("`Ff55Incorrect password.`f")
+                print()
     except Exception as ex:
         print(f"`Ff55Error: {ex}`f")
         print()

@@ -40,12 +40,17 @@ if submitted:
         if not contact and not lxmf:
             errors.append("Please provide either LXMF address or contact info.")
 
+        remote_id = m.get_remote_identity()
+        if not errors and not m.listing_rate_ok(remote_id):
+            errors.append("Too many listings posted right now. Please try again in a few minutes.")
+
         if errors:
             for e in errors:
                 print(f"`Ff55{e}`f")
             print()
         else:
             lid, token = m.create_listing(typ, cat, title, description, price, lxmf, contact)
+            m.record_listing_action(remote_id)
             print("`F3a3Listing posted successfully!`f")
             print()
             print(f"`[View Listing`{m.page_path}/listing.mu`id={lid}]")

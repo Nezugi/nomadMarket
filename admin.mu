@@ -21,7 +21,7 @@ action = os.environ.get("var_action", "")
 
 if action == "delete":
     try:
-        lid = int(os.environ.get("var_id", "0"))
+        lid = m.safe_int(os.environ.get("var_id", "0"))
         m.admin_delete_listing(lid)
         print("`F3a3Listing deleted.`f")
         print()
@@ -30,7 +30,7 @@ if action == "delete":
 
 elif action == "hide":
     try:
-        lid = int(os.environ.get("var_id", "0"))
+        lid = m.safe_int(os.environ.get("var_id", "0"))
         m.admin_toggle_visible(lid, 0)
         print("`F777Listing hidden.`f")
         print()
@@ -39,7 +39,7 @@ elif action == "hide":
 
 elif action == "show":
     try:
-        lid = int(os.environ.get("var_id", "0"))
+        lid = m.safe_int(os.environ.get("var_id", "0"))
         m.admin_toggle_visible(lid, 1)
         print("`F3a3Listing shown.`f")
         print()

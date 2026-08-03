@@ -31,7 +31,20 @@ CATEGORIES_DEFAULT = [
 
 def get_db():
     os.makedirs(storage_path, exist_ok=True)
-    return sqlite3.connect(DB_PATH)
+    con = sqlite3.connect(DB_PATH, timeout=10)
+    # Every .mu request is its own fresh process; concurrent requests hitting
+    # this file would otherwise fail immediately with "database is locked"
+    # instead of briefly waiting.
+    con.execute("PRAGMA busy_timeout=10000")
+    return con
+
+def safe_int(value, default=0):
+    """int(value) that never raises — malformed/malicious request params
+    fall back to `default` instead of crashing the whole page."""
+    try:
+        return int(str(value).strip())
+    except (ValueError, TypeError):
+        return default
 
 def init_db():
     """Initialize database with required tables on first import."""
@@ -72,6 +85,14 @@ def init_db():
             expires_at TEXT NOT NULL
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS action_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            key        TEXT NOT NULL,
+            action     TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
     # Insert default categories only if empty
     existing = cur.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
     if existing == 0:
@@ -86,8 +107,86 @@ def cleanup_expired():
     c = get_db()
     c.execute("DELETE FROM listings WHERE expires_at < ?", (now,))
     c.execute("DELETE FROM admin_sessions WHERE expires_at < ?", (now,))
+    # Purge stale rate-limit rows (well past any window used below).
+    day_ago = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
+    c.execute("DELETE FROM action_log WHERE created_at < ?", (day_ago,))
     c.commit()
     c.close()
+
+def get_setting(key, default=""):
+    c = get_db()
+    row = c.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    c.close()
+    return row[0] if row else default
+
+def set_setting(key, value):
+    c = get_db()
+    c.execute("INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)", (key, value))
+    c.commit()
+    c.close()
+
+# ─── Admin login brute-force lockout ───────────────────────────────────────────
+# Single shared admin password (no per-user accounts), so this is one
+# sitewide lockout rather than per-username.
+ADMIN_LOGIN_MAX_ATTEMPTS = 5
+ADMIN_LOGIN_LOCKOUT_MINUTES = 15
+
+def is_admin_login_locked():
+    locked_until = get_setting("admin_locked_until", "")
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    return bool(locked_until) and locked_until > now
+
+def record_admin_login_failure():
+    attempts = int(get_setting("admin_login_attempts", "0") or "0") + 1
+    set_setting("admin_login_attempts", str(attempts))
+    if attempts >= ADMIN_LOGIN_MAX_ATTEMPTS:
+        locked_until = (datetime.utcnow() + timedelta(minutes=ADMIN_LOGIN_LOCKOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+        set_setting("admin_locked_until", locked_until)
+
+def clear_admin_login_failures():
+    set_setting("admin_login_attempts", "0")
+    set_setting("admin_locked_until", "")
+
+# ─── Listing creation rate-limiting ────────────────────────────────────────────
+# No accounts here either — only a node identity (when present) or a
+# sitewide cap as the real backstop for unidentified submitters.
+LISTING_IDENTITY_RATE_LIMIT = (3, 300)   # 3 listings per 5 min, per identity
+LISTING_GLOBAL_RATE_LIMIT   = (10, 300)  # 10 listings per 5 min, sitewide
+
+def _rate_limit_ok(key, action, limit, window_seconds):
+    cutoff = (datetime.utcnow() - timedelta(seconds=window_seconds)).strftime("%Y-%m-%dT%H:%M:%S")
+    c = get_db()
+    count = c.execute(
+        "SELECT COUNT(*) FROM action_log WHERE key=? AND action=? AND created_at > ?",
+        (key, action, cutoff)
+    ).fetchone()[0]
+    c.close()
+    return count < limit
+
+def _record_action(key, action):
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    c = get_db()
+    c.execute("INSERT INTO action_log(key,action,created_at) VALUES(?,?,?)", (key, action, now))
+    c.commit()
+    c.close()
+
+def listing_rate_ok(identity_hash=""):
+    if not _rate_limit_ok("global", "listing", *LISTING_GLOBAL_RATE_LIMIT):
+        return False
+    if identity_hash and not _rate_limit_ok(f"identity:{identity_hash}", "listing", *LISTING_IDENTITY_RATE_LIMIT):
+        return False
+    return True
+
+def record_listing_action(identity_hash=""):
+    _record_action("global", "listing")
+    if identity_hash:
+        _record_action(f"identity:{identity_hash}", "listing")
+
+def get_remote_identity():
+    ident = os.environ.get("remote_identity", "").strip().lower()
+    if len(ident) == 32 and all(c in "0123456789abcdef" for c in ident):
+        return ident
+    return ""
 
 # ─── Listings ─────────────────────────────────────────────────────────────────
 

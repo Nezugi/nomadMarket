@@ -6,7 +6,7 @@ import main as m
 print("#!c=0")
 
 try:
-    lid = int(os.environ.get("var_id", "0"))
+    lid = m.safe_int(os.environ.get("var_id", "0"))
 except ValueError:
     lid = 0
 
